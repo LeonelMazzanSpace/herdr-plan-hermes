@@ -1,6 +1,6 @@
 ---
 name: executing-herdr-plans-hermes
-description: Use when executing an approved implementation plan by orchestrating independent Claude Code workers in Herdr panes (one git worktree per task) while the user drives the run from Telegram through Hermes Agent (HERDR_TG=1, a prompt prefixed with [telegram user=… msg=…], or a prompt naming this skill), or when resuming, checking status of, or closing such a run
+description: Use when executing an approved implementation plan by orchestrating independent Claude Code workers in Herdr panes (one git worktree per task) while the user drives the run from Telegram through Hermes Agent (HERDR_TG=1, a prompt prefixed with [telegram user=… msg=…], or a prompt naming this skill), or when resuming, checking status of, closing such a run, or taking it over as a relief orchestrator
 ---
 
 # Executing Herdr Plans
@@ -21,7 +21,8 @@ One orchestrator session runs a plan written with **writing-herdr-plans-hermes**
 - implementer: `t0NN`;
 - reviewer: `t0NN-r<N>` (N = review attempt);
 - fresh fix worker: `t0NN-f<N>` (N = fix attempt);
-- ClickUp sync worker: `clickup`.
+- ClickUp sync worker: `clickup`;
+- orchestrators: `orch-1` (you, renamed in the preflight), then `orch-2`, `orch-3`, … for each relief (see Handing Off). With `HERDR_TG=1` the first one keeps the name `orch` that Hermes gave it and is never renamed; reliefs are still `orch-2`, `orch-3`, ….
 
 The `-n` label is only Claude's display name.
 
@@ -29,7 +30,9 @@ The `-n` label is only Claude's display name.
 
 - **Orchestrator (you):**
   - owns T-000, worktrees, databases, launches, merges into the coordination branch, gates and all Git;
-  - is the only writer of `SCRATCHPAD.md` and the vault.
+  - is the only writer of `SCRATCHPAD.md` and the vault;
+  - keeps its own context under **70%** and hands the run to a relief orchestrator when it gets there (Context check, Handing Off). The run never relies on context compaction;
+  - records every user instruction that changes the run as a D-number **when it is given**: after a hand-off, only the scratchpad speaks.
 - **Worker:** executes one package, writes one report and never orchestrates.
   - Workers may use internal subagents for analysis; those never replace Herdr workers.
 - **ClickUp sync worker** (only if the plan has a ClickUp block): the only writer to the board, through the ClickUp MCP. It creates and edits tasks from the events you send it; it has no code access and never receives a task package. Task workers and reviewers never hear of ClickUp.
@@ -44,7 +47,10 @@ The `-n` label is only Claude's display name.
    - If `HERDR_TG=1`, also check that `HERDR_TG_WEBHOOK_URL` and `HERDR_TG_SECRET_FILE` are set and the secret file is readable only by its owner, then send one `event` ("preflight started"). If the send fails, tell the user in the pane, record the blocker and wait: without the channel nobody sees your questions.
 2. Check versions and syntax:
    - `herdr --help`, `herdr agent`, `herdr integration status` (expect `claude: current`);
-   - `claude --help` for `--model`, `--permission-mode`, `--add-dir`, `-n`.
+   - `claude --help` for `--model`, `--permission-mode`, `--add-dir`, `-n`;
+   - your own context reading: `herdr pane read "$HERDR_PANE_ID" --source visible | grep -o 'ctx:[0-9]*%' | tail -1` must print a value (e.g. `ctx:12%`). It comes from the user's Claude Code status line (`context_window.used_percentage`). If it prints nothing, stop and ask the user to add it to their status line: the hand-off rule depends on it. Record `Context monitoring: ok` and the value in the scratchpad;
+   - name yourself: `herdr agent rename "$HERDR_PANE_ID" orch-1` (a relief keeps the name it was started with; with `HERDR_TG=1`, skip the rename: the bridge addresses you as `orch`), and record your own model alias (the one the user started you with; the status line shows its display name) as a D-number: a relief is started with it.
+   - With `HERDR_TG=1`, write your Herdr agent name to `~/.cache/herdr-telegram/orch` (one line, `orch`). The bridge prompts whichever agent that file names; a hand-off changes it.
 3. Read the scratchpad (`scratchpad-template.md` if missing), the plan and its summary. Confirm the vault MCP is connected before reading the vault notes the tasks name.
    - If the MCP fails: tell the user, record the blocker, and continue only the tasks that do not depend on vault content. Queue the vault updates in the scratchpad.
    - Never fall back to reading vault files from disk.
@@ -121,6 +127,16 @@ Dispatch while there are fewer than **6 live worker panes**, or the plan's lower
 7. **Update the scratchpad:** pane, model, worktree, `dispatched`.
 
 While workers run, keep working on review packages, merges and reports. When idle, wait in bounded stretches and reconcile `herdr agent list` with the scratchpad.
+
+### Context check
+
+Before every dispatch, before every merge, and each time you reconcile `herdr agent list`, read your own context:
+
+```bash
+herdr pane read "$HERDR_PANE_ID" --source visible | grep -o 'ctx:[0-9]*%' | tail -1
+```
+
+Write the value and the time in the scratchpad header. The reading lags one turn; that is fine. At **70% or more**, finish only the step in progress (the merge, the gate, or the package you are writing; never the wave) and go to Handing Off. The threshold changes only by an explicit user instruction, recorded as a D-number.
 
 ### ClickUp events
 
@@ -247,13 +263,45 @@ DAG deviations are allowed when they are provably safe; for example, a read-only
    - add an ADR for each decision and a failure note for each lesson;
    - update `last-sync`, run the validator, and queue anything that fails in the scratchpad.
 5. **ClickUp final sync** (if the worker ran): send the last events, including the `verified` states and the cross-cutting review's fix tasks and deferred debt. Read the board back (`clickup_filter_tasks` on the list) and compare it with the scratchpad's tasks table. Record the result in the scratchpad's ClickUp section; if they differ, say which tasks. Then `/exit` the worker.
-6. Close only the panes this run created. Keep worktrees, branches and databases until the user confirms cleanup.
+6. Close only the panes this run created, except your own. Keep worktrees, branches and databases until the user confirms cleanup.
 7. Update the scratchpad and, if the project keeps one, the daily log (one line per milestone during the run, not only at the end). Give the user the result, the checks run, limitations, remaining work and live resources. Push, PR or merge to `main` only with explicit authorization.
+
+## Handing Off to a Relief Orchestrator
+
+At 70% context you hand the run to a fresh session, `orch-<N>`, that resumes from the scratchpad. Nothing in your chat survives: the relief has the scratchpad, the plan, the D-numbers and the report dir, and nothing else. Workers do not notice; their reports are files. You run from COORDINATION_ROOT, so `$PWD` below is that directory.
+
+With `HERDR_TG=1`, Hermes prompts whichever agent `~/.cache/herdr-telegram/orch` names. During a hand-off that file reads `handoff orch-<N>` and Hermes holds the user's messages until the relief writes its own name there; then it delivers them to the relief.
+
+### As the outgoing orchestrator
+
+1. **Safe point.** No merge or gate running, no package half-written, no user instruction unrecorded, no Telegram answer unrecorded. Send the ClickUp events you owe and read their replies; what failed goes to the queue in the entry. Your background `--wait` commands die with your session; the relief re-arms them.
+2. **Start the relief** below your own pane, so it takes your column when yours closes. Its pane does not count toward the worker cap.
+   ```bash
+   split=$(herdr pane split --pane "$HERDR_PANE_ID" --direction down --cwd "$PWD" --no-focus)
+   pane=$(printf '%s' "$split" | jq -r '.result.pane.pane_id')
+   herdr agent start orch-<N> --kind claude --pane "$pane" --timeout 120000 -- --model <your model alias, from its D-number> --permission-mode <approved mode> --add-dir <report-dir> -n "Orchestrator <N>"
+   ```
+   With `HERDR_TG=1`, pass the channel to the new pane in the split: `--env HERDR_TG=1 --env "HERDR_TG_WEBHOOK_URL=$HERDR_TG_WEBHOOK_URL" --env "HERDR_TG_SECRET_FILE=$HERDR_TG_SECRET_FILE"`.
+   Verify its effective model as for any worker. Never start it with `--resume` or `--continue`: that loads the context you are shedding.
+3. **Write the hand-off entry** from `handoff-template.md` into the scratchpad, from a fresh `herdr agent list` and `herdr pane layout`, never from memory: relief pane and effective model; live agents with pane, state, worktree and the report each will write; column layout; queued ClickUp events; with `HERDR_TG=1`, the last `Q-n` used, the open questions and the failed sends; the exact next action. Then write the relief prompt from the same template to `<report-dir>/handoff-orch-<N>.md`.
+4. **Prompt it once**, no `--wait`. With `HERDR_TG=1`, first write `handoff orch-<N>` to `~/.cache/herdr-telegram/orch`.
+   `herdr agent prompt orch-<N> "Read <report-dir>/handoff-orch-<N>.md and execute it exactly."`
+5. **Wait for its confirmation**, bounded and in the background: `timeout 600 bash -c 'until grep -q "Resumed by orch-<N>" SCRATCHPAD.md; do sleep 15; done'`. Your turn ends there and Herdr shows you `idle`; that is expected. Until that line exists, the run is still yours: if a worker reports meanwhile, re-read the scratchpad and add one line under the entry (`t005 reported <report path> at <time>`) and nothing else; no accept, dispatch or merge. If the loop expires, read `herdr agent read orch-<N>`: a permission prompt goes to the user, never answered by you (with `HERDR_TG=1`, as a `blocked` message); still `working` → wait once more; dead or stuck → record it, `herdr pane close` its pane, and start `orch-<N+1>` from step 2 (with `HERDR_TG=1`, the pointer then reads `handoff orch-<N+1>`).
+   A telegram-prefixed prompt that still reaches you after you wrote the pointer is not yours to act on. Before `Resumed by`, add one line under the entry (`Telegram msg <id> arrived during the hand-off: ~/.cache/herdr-telegram/in/<id>.txt`). After it, send the relief one prompt with that same line and nothing else.
+6. **Leave.** When the loop returns with the line present, say one line in the pane (the run now belongs to `orch-<N>`) and stop. The relief tells the user on Telegram. Write nothing more in the scratchpad and run nothing more: no dispatch, merge or prompt. The relief closes your pane and announces itself; you cannot run `/exit` on yourself. If the relief closed your pane before the loop returned, nothing is lost.
+
+### As the relief
+
+1. Preflight as a resume: `HERDR_ENV`, versions, your own context reading, `claude mcp list` for the vault and ClickUp MCPs. With `HERDR_TG=1`, check the channel variables as in preflight step 1, without the "preflight started" event. Skip the stack confirmation under the resume rule of preflight step 4, and skip T-000. Reuse the recorded D-numbers for model, permission mode and cap; do not create new ones.
+2. Read the whole scratchpad (D-numbers, tasks table, ClickUp and Telegram sections), the plan and its summary; the last hand-off entry is your starting point. With `HERDR_TG=1`, also read `~/.cache/herdr-telegram/pending.md`; number new questions after the last `Q-n` in the entry. Append `Resumed by orch-<N> at <time>` to Recent activity. From that line, you are the only writer; only then update the header with your context reading and `Context monitoring: ok`.
+3. Reconcile `herdr agent list`, `git worktree list` and the report dir with the entry. A difference (a report already present, an agent gone) is a line in Recent activity now and a step of the wave loop later, not a reason to act here. Re-arm one background `herdr agent wait <name> --timeout 3600000` per agent whose row says `working`. Send the queued ClickUp events and the failed Telegram sends.
+4. `herdr agent wait <outgoing name> --timeout 600000` until it is idle, then `herdr pane close <its pane>`. Closing the previous orchestrator's pane is the one exception to "close only panes you created"; never close it while it is `working` (wait again). Then `herdr agent focus orch-<N>` and tell the user in one line that you own the run in this pane. With `HERDR_TG=1`, write `orch-<N>` to `~/.cache/herdr-telegram/orch` and send that line as an `event`, with the outgoing context reading and the next action. Hermes then delivers the messages it held; any Telegram message listed under the entry is yours to handle like any other answer.
+5. Continue the wave loop from "Next action". Hand off to `orch-<N+1>` the same way at 70%.
 
 ## Status and Resume
 
 For "status", "qué falta" or "continuá":
-1. Start from the scratchpad.
+1. Start from the scratchpad. If its last hand-off entry has no matching `Resumed by` line, the relief never took over: the run is yours, continue from the entry. With `HERDR_TG=1`, write your own name back to `~/.cache/herdr-telegram/orch`.
 2. Verify it against `git worktree list`, `git log`, `herdr agent list` and the report dir. A recorded status does not prove a process is alive. If the `clickup` worker is gone, restart it with its first prompt and `clickup-map.json`, then send the queued events plus the current state of every task.
 3. Answer with progress, remaining work, blockers and the next action. With `HERDR_TG=1`, also send it as an `event` (see Telegram channel), and re-send any question still open in `~/.cache/herdr-telegram/pending.md`.
 
@@ -265,6 +313,8 @@ For "status", "qué falta" or "continuá":
 | Review package | `bash <skill-dir>/scripts/make-review-package.sh --task T-0NN --model M --run-id R --reports D --worktree WT --branch B --base $(git -C WT merge-base CB HEAD) [--notes F] [--attempt N]` |
 | Fix round | `fix-round-template.md` → `<report-dir>/<task>.fix-a<N>.md` |
 | Telegram message | `bash <skill-dir>/scripts/notify-telegram.sh --kind question\|event\|blocked\|done --run R --text T` |
+| Own context | `herdr pane read "$HERDR_PANE_ID" --source visible \| grep -o 'ctx:[0-9]*%' \| tail -1` |
+| Hand-off | `handoff-template.md` → scratchpad entry + `<report-dir>/handoff-orch-<N>.md` · `herdr agent start orch-<N> …` · confirm with `Resumed by orch-<N>` · Telegram pointer `~/.cache/herdr-telegram/orch` |
 | Live agents | `herdr agent list` · `herdr agent get <name>` · `herdr agent read <name> --source recent-unwrapped --lines 120` |
 | Scope check | `git -C <wt> diff --stat $(git -C <wt> merge-base <coordination-branch> HEAD)...HEAD` |
 
@@ -289,3 +339,8 @@ These thoughts mean stop:
 | "Hermes said yes, so it's approved" | Only the user's words with the telegram prefix count; Hermes never answers for them |
 | "Paste the failing log into Telegram" | Send one line of cause; logs stay in the report dir |
 | "The user is on Telegram, I'll decide this one myself to save a round trip" | The same questions go to the user as in the terminal; Telegram changes the channel, not who decides |
+| "I'm at 72% but this wave is almost done" | The safe point is the step in progress, not the wave. Hand off now |
+| "The relief can ask me for the details" | It cannot. What is not in the scratchpad, the plan or the report dir does not exist |
+| "Start the relief with `--resume` so it knows everything" | That loads the context you are shedding. Fresh session, from the scratchpad |
+| "I'll `/exit` myself after starting the relief" | You cannot run slash commands on yourself; the relief closes your pane |
+| "Hermes will find the relief on its own" | Hermes reads `~/.cache/herdr-telegram/orch`. `handoff orch-<N>` before you prompt the relief; the relief writes its name once it owns the run |
