@@ -167,6 +167,7 @@ hermes model                  # un modelo chico alcanza: solo enruta
 sudo pacman -S --needed jq openssl curl     # macOS: brew install jq</code></pre></div>
 <p>Superpowers se instala adentro de Claude Code:</p>
 <div class="code"><pre><code>/plugin install superpowers@claude-plugins-official</code></pre></div>
+<p>La status line de Claude Code tiene que mostrar el contexto usado como <code>ctx:N%</code> (<code>context_window.used_percentage</code>): el orquestador la lee para pasarle la corrida a uno nuevo al 70%.</p>
 <p class="ok">Listo si <code>claude --version</code>, <code>herdr --version</code> y <code>hermes doctor</code> responden, y <code>herdr integration status</code> dice <code>claude: current</code>.</p>
 <h3>2 · Herdr sin terminal</h3>
 <div class="code"><pre><code>loginctl enable-linger "$USER"
@@ -213,12 +214,14 @@ hermes gateway restart        # y en Telegram: /reload-skills</code></pre></div>
 </table>
 </div>
 <p>Además: <code>/herdr ver</code> muestra las últimas líneas del panel, <code>/herdr pendiente</code> las preguntas abiertas y <code>/herdr parar</code> frena todo sin borrar nada. Push y PR se piden aparte, nombrando la rama.</p>
+<p>Si el orquestador llega al 70% de contexto, le pasa la corrida a uno nuevo (<code>orch-2</code>, <code>orch-3</code>…) y te llega un <code>event</code> cuando el nuevo la toma. Lo que mandes mientras tanto queda en cola y le llega al nuevo.</p>
 <h2>Qué cambia respecto de herdr-plan</h2>
 <p><code>herdr-plan</code> no se toca. La copia solo se comporta distinto con <code>HERDR_TG=1</code>.</p>
 <ul>
   <li>Skills renombrados con <code>-hermes</code>, para convivir con los originales.</li>
   <li><code>executing</code>: sección "Telegram channel", chequeo del canal en el preflight y <code>systemd-inhibit</code> en Linux.</li>
   <li><code>writing</code>: el resumen y la aprobación del plan salen por Telegram.</li>
+  <li>Relevo del orquestador al 70% de contexto, como en <code>herdr-plan</code>. El puente sigue al nuevo leyendo <code>~/.cache/herdr-telegram/orch</code>.</li>
   <li>Nuevos: <code>notify-telegram.sh</code>, el skill de Hermes y <code>setup/</code>.</li>
   <li>Mismo formato de plan y mismos scripts de paquetes.</li>
 </ul>
