@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Herdr desde Telegram</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: guía de lectura con índice fijo a la izquierda en pantallas anchas; una columna en el teléfono. */
+:root {
+  --bg: #f5f7f9;
+  --surface: #ffffff;
+  --ink: #16202a;
+  --muted: #566372;
+  --line: #dbe1e8;
+  --accent: #1c6aa0;
+  --accent-soft: #e4eff7;
+  --back: #2a7a57;
+  --back-soft: #e3f2ea;
+  --warn: #9a5700;
+  --warn-soft: #fbf0df;
+  --code-bg: #eef2f6;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1418; --surface: #151d23; --ink: #e5ebf0; --muted: #98a5b1; --line: #29343d;
+    --accent: #62b1e3; --accent-soft: #15293a; --back: #61c596; --back-soft: #14291f;
+    --warn: #e3a452; --warn-soft: #2d2213; --code-bg: #10181e;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1418; --surface: #151d23; --ink: #e5ebf0; --muted: #98a5b1; --line: #29343d;
+  --accent: #62b1e3; --accent-soft: #15293a; --back: #61c596; --back-soft: #14291f;
+  --warn: #e3a452; --warn-soft: #2d2213; --code-bg: #10181e;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 17px/1.6 var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 780px; margin: 0 auto; padding-block: 48px 80px; }
+main { min-width: 0; max-width: 780px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; line-height: 1.15; }
+h1 { font-size: 44px; font-weight: 700; margin: 0 0 16px; letter-spacing: -.01em; }
+h2 { font-size: 26px; font-weight: 700; margin: 48px 0 12px; padding-top: 8px; border-top: 1px solid var(--line); }
+h3 { font-size: 20px; font-weight: 500; margin: 32px 0 8px; }
+.eyebrow { font: 600 12px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin: 0 0 12px; }
+.lede { font-size: 20px; color: var(--muted); max-width: 64ch; margin: 0; }
+p, li { max-width: 68ch; }
+a { color: var(--accent); }
+code { font-family: var(--font-mono); font-size: .86em; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+.code { position: relative; margin: 12px 0 20px; }
+.code pre { margin: 0; background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-x: auto; font: 13.5px/1.55 var(--font-mono); }
+.code pre code { background: none; padding: 0; font-size: inherit; }
+.code .label { display: block; font: 600 11px/1 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+.table { overflow-x: auto; margin: 12px 0 20px; }
+th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+th { font: 600 12px/1.3 var(--font-mono); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+td code { white-space: nowrap; }
+.diagram { overflow-x: auto; margin: 24px 0 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+.diagram svg { display: block; min-width: 860px; width: 100%; height: auto; }
+svg .node { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }
+svg .node.hot { stroke: var(--accent); }
+svg .t1 { font: 600 14px var(--font-body); fill: var(--ink); }
+svg .t2 { font: 12px var(--font-mono); fill: var(--muted); }
+svg .lab { font: 12px var(--font-body); fill: var(--muted); }
+svg .go { stroke: var(--accent); stroke-width: 2; fill: none; }
+svg .ret { stroke: var(--back); stroke-width: 2; fill: none; stroke-dasharray: 6 4; }
+svg .head-go { fill: var(--accent); } svg .head-ret { fill: var(--back); }
+.legend { display: flex; flex-wrap: wrap; gap: 20px; font-size: 14px; color: var(--muted); margin-bottom: 24px; }
+.legend span::before { content: ""; display: inline-block; width: 22px; height: 0; border-top: 2px solid var(--accent); vertical-align: middle; margin-right: 8px; }
+.legend span.r::before { border-top: 2px dashed var(--back); }
+.ok { color: var(--back); font-size: 15px; margin-top: -8px; }
+.ok::before { content: "✓ "; font-weight: 600; }
+footer { margin-top: 56px; font-size: 14px; color: var(--muted); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 600px) { .wrap { padding-block: 28px 56px; } h1 { font-size: 34px; } }
+@media (max-width: 480px) { body { font-size: 16px; } }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+html { scroll-behavior: smooth; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<main>
+<p class="eyebrow">herdr-plan-hermes</p>
+<h1>Herdr desde Telegram</h1>
+<p class="lede">Creá y despachá una orquestación desde Telegram. Hermes Agent recibe tus mensajes y se los pasa al orquestador Claude Code; el orquestador te contesta por un webhook.</p>
+<h2>Cómo funciona</h2>
+<div class="diagram" role="img" aria-label="Diagrama: Telegram envía mensajes a Hermes, que maneja Herdr y el orquestador; el orquestador devuelve eventos por un webhook de Hermes que los entrega en Telegram sin pasar por el modelo.">
+<svg viewBox="0 0 920 300" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-go" d="M0 0L10 5L0 10z"/></marker>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head-ret" d="M0 0L10 5L0 10z"/></marker>
+  </defs>
+  <rect class="node hot" x="16" y="36" width="150" height="62" rx="10"/>
+  <text class="t1" x="91" y="62" text-anchor="middle">Vos · Telegram</text>
+  <text class="t2" x="91" y="82" text-anchor="middle">DM o topic "Herdr"</text>
+  <rect class="node hot" x="206" y="36" width="170" height="62" rx="10"/>
+  <text class="t1" x="291" y="62" text-anchor="middle">Hermes gateway</text>
+  <text class="t2" x="291" y="82" text-anchor="middle">skill /herdr</text>
+  <rect class="node" x="416" y="36" width="150" height="62" rx="10"/>
+  <text class="t1" x="491" y="62" text-anchor="middle">Herdr server</text>
+  <text class="t2" x="491" y="82" text-anchor="middle">headless, systemd</text>
+  <rect class="node hot" x="606" y="36" width="140" height="62" rx="10"/>
+  <text class="t1" x="676" y="62" text-anchor="middle">Panel orch</text>
+  <text class="t2" x="676" y="82" text-anchor="middle">Claude Code</text>
+  <rect class="node" x="786" y="36" width="120" height="62" rx="10"/>
+  <text class="t1" x="846" y="62" text-anchor="middle">Workers</text>
+  <text class="t2" x="846" y="82" text-anchor="middle">t001 … t0NN</text>
+  <rect class="node" x="206" y="206" width="170" height="62" rx="10"/>
+  <text class="t1" x="291" y="232" text-anchor="middle">Webhook :8644</text>
+  <text class="t2" x="291" y="252" text-anchor="middle">ruta herdr-events</text>
+  <rect class="node" x="566" y="206" width="220" height="62" rx="10"/>
+  <text class="t1" x="676" y="232" text-anchor="middle">notify-telegram.sh</text>
+  <text class="t2" x="676" y="252" text-anchor="middle">firma HMAC + curl</text>
+  <line class="go" x1="166" y1="67" x2="204" y2="67" marker-end="url(#ag)"/>
+  <line class="go" x1="376" y1="67" x2="414" y2="67" marker-end="url(#ag)"/>
+  <line class="go" x1="566" y1="67" x2="604" y2="67" marker-end="url(#ag)"/>
+  <line class="go" x1="746" y1="67" x2="784" y2="67" marker-end="url(#ag)"/>
+  <text class="lab" x="395" y="124" text-anchor="middle">herdr agent prompt</text>
+  <text class="lab" x="765" y="124" text-anchor="middle">waves</text>
+  <line class="ret" x1="676" y1="98" x2="676" y2="204" marker-end="url(#ar)"/>
+  <text class="lab" x="686" y="160">pregunta · evento</text>
+  <line class="ret" x1="566" y1="237" x2="378" y2="237" marker-end="url(#ar)"/>
+  <text class="lab" x="472" y="228" text-anchor="middle">POST firmado</text>
+  <path class="ret" d="M206 237 H91 V100" marker-end="url(#ar)"/>
+  <text class="lab" x="100" y="180">deliver-only,</text>
+  <text class="lab" x="100" y="196">sin modelo</text>
+</svg>
+</div>
+<div class="legend"><span>Ida: tus mensajes y comandos</span><span class="r">Vuelta: preguntas e hitos del orquestador</span></div>
+<ul>
+  <li><strong>Hermes solo enruta.</strong> Reenvía tu texto literal con el prefijo <code>[telegram user=… msg=…]</code>. No decide, no aprueba y no responde permisos.</li>
+  <li><strong>El orquestador es el de siempre.</strong> Con <code>HERDR_TG=1</code> te pregunta y te avisa con <code>notify-telegram.sh</code> en vez de hacerlo por su chat.</li>
+  <li><strong>La vuelta no gasta tokens.</strong> El webhook entrega el mensaje directo en Telegram (<code>--deliver-only</code>).</li>
+</ul>
+<h2>Instalación</h2>
+<p>Todos los comandos se corren desde <code>herdr-plan-hermes/</code>, en el host que queda prendido.</p>
+<h3>1 · Herramientas</h3>
+<div class="code"><pre><code># Claude Code
+curl -fsSL https://claude.ai/install.sh | bash
+claude                        # login la primera vez; después /exit
+# Herdr y su integración con Claude
+curl -fsSL https://herdr.dev/install.sh | sh
+herdr integration install claude
+# Skills de Herdr
+pnpm dlx skills add herdrdev/herdr --skill herdr -g
+pnpm dlx skills add aerain/herdr-agent-orchestration -g -s herdr-agent-orchestration -a claude-code
+# Hermes Agent
+curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
+hermes model                  # un modelo chico alcanza: solo enruta
+# Utilidades del script de aviso
+sudo pacman -S --needed jq openssl curl     # macOS: brew install jq</code></pre></div>
+<p>Superpowers se instala adentro de Claude Code:</p>
+<div class="code"><pre><code>/plugin install superpowers@claude-plugins-official</code></pre></div>
+<p class="ok">Listo si <code>claude --version</code>, <code>herdr --version</code> y <code>hermes doctor</code> responden, y <code>herdr integration status</code> dice <code>claude: current</code>.</p>
+<h3>2 · Herdr sin terminal</h3>
+<div class="code"><pre><code>loginctl enable-linger "$USER"
+mkdir -p ~/.config/herdr ~/.config/systemd/user
+cat setup/herdr-config.toml &gt;&gt; ~/.config/herdr/config.toml   # si ya tenés [server], agregá solo las 2 claves
+cp setup/herdr.service ~/.config/systemd/user/                # completá PATH y la ruta de herdr
+systemctl --user daemon-reload &amp;&amp; systemctl --user enable --now herdr.service</code></pre></div>
+<p class="ok">Listo si <code>herdr workspace list</code> responde desde una terminal fuera de Herdr.</p>
+<h3>3 · Bot de Telegram</h3>
+<p>Creá el bot con <strong>@BotFather</strong> (<code>/newbot</code>) y sacá tu ID numérico con <strong>@userinfobot</strong>.</p>
+<div class="code"><pre><code>hermes gateway setup          # Telegram: token y TELEGRAM_ALLOWED_USERS=&lt;tu ID&gt;
+hermes gateway install &amp;&amp; hermes gateway start</code></pre></div>
+<p class="ok">Listo si <code>/whoami</code> en Telegram te muestra como permitido.</p>
+<h3>4 · Webhook de vuelta</h3>
+<div class="code"><pre><code># en ~/.hermes/.env: WEBHOOK_ENABLED=true y WEBHOOK_PORT=8644
+hermes gateway restart
+hermes webhook subscribe herdr-events \
+  --prompt "[{run}] {kind}
+{text}" \
+  --deliver telegram --deliver-chat-id "&lt;tu chat id&gt;" --deliver-only
+mkdir -p -m 700 ~/.config/herdr-telegram
+umask 077 &amp;&amp; printf '%s' '&lt;secreto que devolvió subscribe&gt;' &gt; ~/.config/herdr-telegram/webhook.secret</code></pre></div>
+<p class="ok">Listo si <code>hermes webhook test herdr-events --payload '{"run":"test","kind":"event","text":"hola"}'</code> te llega.</p>
+<h3>5 · Skills de esta carpeta</h3>
+<div class="code"><pre><code># copiá las variables HERDR_TG_* de setup/hermes.env.example a ~/.hermes/.env (incluye el modo de permisos)
+ln -s "$PWD/writing-herdr-plans-hermes" ~/.claude/skills/writing-herdr-plans-hermes
+ln -s "$PWD/executing-herdr-plans-hermes" ~/.claude/skills/executing-herdr-plans-hermes
+ln -s "$PWD/hermes/herdr" ~/.hermes/skills/herdr
+hermes gateway restart        # y en Telegram: /reload-skills</code></pre></div>
+<p class="ok">Listo si <code>bash executing-herdr-plans-hermes/scripts/notify-telegram.sh --kind event --run test --text ok</code> te llega (con las variables <code>HERDR_TG_*</code> exportadas).</p>
+<h2>Uso: qué ejecutar</h2>
+<p>Todo desde Telegram. La primera vez, con un repo de juguete y un spec de dos tareas.</p>
+<div class="table">
+<table>
+<thead><tr><th>Vos mandás</th><th>Te llega</th></tr></thead>
+<tbody>
+<tr><td>1. <code>/herdr nuevo ~/ruta/repo</code> con el spec adjunto</td><td><code>Q-1</code>: resumen del plan y decisiones abiertas</td></tr>
+<tr><td>2. "Aprobado", o tus correcciones</td><td>El plan guardado, o un <code>Q</code> nuevo si cambió</td></tr>
+<tr><td>3. <code>/herdr ejecutar</code></td><td><code>Q-2</code>: tabla de stack, modo de permisos, suspensión y ClickUp</td></tr>
+<tr><td>4. Tus respuestas a esas filas</td><td>Un <code>event</code> por cada tarea <code>verified</code>, y un <code>blocked</code> si algo frena</td></tr>
+<tr><td>5. <code>/herdr status</code> cuando quieras</td><td>Avance, bloqueos y próximo paso</td></tr>
+<tr><td>6. Nada: esperá</td><td><code>done</code>: resultado, checks y trabajo pendiente</td></tr>
+</tbody>
+</table>
+</div>
+<p>Además: <code>/herdr ver</code> muestra las últimas líneas del panel, <code>/herdr pendiente</code> las preguntas abiertas y <code>/herdr parar</code> frena todo sin borrar nada. Push y PR se piden aparte, nombrando la rama.</p>
+<h2>Qué cambia respecto de herdr-plan</h2>
+<p><code>herdr-plan</code> no se toca. La copia solo se comporta distinto con <code>HERDR_TG=1</code>.</p>
+<ul>
+  <li>Skills renombrados con <code>-hermes</code>, para convivir con los originales.</li>
+  <li><code>executing</code>: sección "Telegram channel", chequeo del canal en el preflight y <code>systemd-inhibit</code> en Linux.</li>
+  <li><code>writing</code>: el resumen y la aprobación del plan salen por Telegram.</li>
+  <li>Nuevos: <code>notify-telegram.sh</code>, el skill de Hermes y <code>setup/</code>.</li>
+  <li>Mismo formato de plan y mismos scripts de paquetes.</li>
+</ul>
+<h2>Seguridad</h2>
+<ul>
+  <li><code>TELEGRAM_ALLOWED_USERS</code> con tu ID. Nunca <code>*</code>.</li>
+  <li>Solo los repos de <code>HERDR_TG_REPOS</code>. Tu texto pasa por un archivo, nunca concatenado en un comando.</li>
+  <li>Secretos en <code>~/.hermes/.env</code> y en un archivo 0600. El puerto 8644 no se expone fuera del host.</li>
+  <li>Push, PR y merges a ramas compartidas solo si lo pedís nombrando la rama.</li>
+</ul>
+<h2>Por decidir y por verificar</h2>
+<ul>
+  <li><strong>Tuyo:</strong> qué máquina queda prendida, y qué modo de permisos usa el orquestador sin nadie en la terminal (recomiendo <code>auto</code> con un allowlist).</li>
+  <li><strong>Lo de Hermes no se probó en vivo</strong> (no está instalado acá). <code>hermes gateway install</code> sale de guías de terceros: confirmalo con <code>hermes gateway --help</code>.</li>
+  <li><strong>Firma del webhook:</strong> la doc no muestra un ejemplo. Si la prueba del paso 5 da 401, ajustá el formato.</li>
+  <li><strong><code>herdr agent prompt</code></strong> con el orquestador trabajando: no está documentado. El puente espera a que quede libre.</li>
+</ul>
+<footer>Fuentes: <a href="https://hermes-agent.nousresearch.com/docs/user-guide/messaging/telegram">Hermes · Telegram</a> · <a href="https://hermes-agent.nousresearch.com/docs/user-guide/messaging/webhooks">Hermes · Webhooks</a> · <a href="https://hermes-agent.nousresearch.com/docs/user-guide/features/skills">Hermes · Skills</a> · <a href="https://herdr.dev/llms-full.txt">Herdr · docs</a>. Revisado el 16/10/2026: verificá cada comando con <code>--help</code>.</footer>
+</main>
+</div>
+</body>
+</html>

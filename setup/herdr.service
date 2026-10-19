@@ -1,0 +1,11 @@
+[Unit]
+Description=Herdr headless server
+
+[Service]
+# Set ExecStart to the output of: command -v herdr
+ExecStart=%h/.local/bin/herdr server
+Environment=PATH=<paste the output of: echo $PATH>
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

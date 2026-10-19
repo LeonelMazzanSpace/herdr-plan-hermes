@@ -1,0 +1,7 @@
+# Merge into ~/.config/herdr/config.toml.
+# Without an attached client Herdr lays panes out on a 120x40 virtual terminal;
+# executing-herdr-plans-hermes needs at least 180 columns for two worker columns.
+# If the file already has a [server] table, add only the two keys to it.
+[server]
+headless_cols = 200
+headless_rows = 60
