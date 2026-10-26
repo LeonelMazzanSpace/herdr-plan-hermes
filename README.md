@@ -10,6 +10,11 @@ The step-by-step guide (architecture, installation, testing and open questions) 
 | [`executing-herdr-plans-hermes/`](executing-herdr-plans-hermes/SKILL.md) | Claude Code | `executing-herdr-plans` with the "Telegram channel" section and `scripts/notify-telegram.sh` |
 | [`hermes/herdr/`](hermes/herdr/SKILL.md) | Hermes Agent | The bridge: `/herdr nuevo`, `ejecutar`, `status`, `ver`, `pendiente`, `parar` commands |
 | [`setup/`](setup/) | The host | Herdr systemd unit, headless size and `~/.hermes/.env` variables |
+| [`tests/`](tests/run.sh) | Maintainers | `bash tests/run.sh`: the script tests, the sample plan and the check that code know-how moved verbatim into `kinds/code.md` |
+
+## Kinds of task
+
+Same as in `herdr-plan` (see its [Kinds of task](../herdr-plan/README.md#kinds-of-task) section): each task has a `**Kind:**` of `code` (the default), `findings` or `document`, plans can mix them, and a plan with findings or document tasks ends in a deliverable (`.md` or `.html`). Each skill has a `kinds/` folder (`code.md`, `findings.md`, `document.md`) with the rules per kind. With `HERDR_TG=1` the `done` event also carries the deliverable's absolute path, when the plan has one.
 
 ## What changes compared to herdr-plan
 
@@ -30,7 +35,7 @@ Everything new is only activated by `HERDR_TG=1`, which Hermes sets when it laun
 - **`executing-herdr-plans-hermes/scripts/notify-telegram.sh`:** new. Signs the message with HMAC and sends it to the `herdr-events` route of the Hermes webhook.
 - **`executing-herdr-plans-hermes/scratchpad-template.md`:** new "Telegram channel" section, plus the hand-off fields of `herdr-plan`.
 - **`writing-herdr-plans-hermes/SKILL.md`:** "Telegram" paragraph at the top, the plan summary is also sent over Telegram and the approval question waits for the answer from there.
-- **No content changes:** `make-package.sh`, `make-review-package.sh`, `fix-round-template.md`, `orchestration-section-template.md` and `animations-guidelines.md` (only the skill name changes in their references). The plan format is the same, so a plan written with one skill can be executed with the other.
+- **No content changes:** `make-package.sh`, `make-review-package.sh`, `fix-round-template.md`, `orchestration-section-template.md`, `animations-guidelines.md` and the `kinds/` files (only the skill name changes in their references). The plan format is the same, so a plan written with one skill can be executed with the other.
 
 ## Requirements
 
